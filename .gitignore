@@ -1,0 +1,10 @@
+.env
+node_modules/
+playwright/test-results/
+playwright/playwright-report/
+playwright/blob-report/
+robot/results/
+robot/.venv/
+.venv/
+__pycache__/
+*.pyc

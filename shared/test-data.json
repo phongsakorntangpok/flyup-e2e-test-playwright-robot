@@ -1,0 +1,65 @@
+{
+  "maxDraftProjects": 5,
+  "blockingStates": ["funding", "pending_review", "executing", "pending_cancel", "pending_edit_review"],
+
+  "project": {
+    "title": "AUTO-E2E โปรเจกต์ทดสอบ",
+    "description": "โปรเจกต์ทดสอบอัตโนมัติ",
+    "fundingGoal": 100000,
+    "projectDurationMonths": 12,
+    "campaignDays": 30,
+    "profitSharePct": 10,
+    "expectedSoftCap": 70000,
+    "expectedSoftCapText": "70,000",
+    "expectedMinInvestText": "1,000",
+    "story": "เรื่องราวของโปรเจกต์ทดสอบอัตโนมัติ",
+    "risk": "ความเสี่ยงของโปรเจกต์ทดสอบอัตโนมัติ",
+    "milestones": [
+      { "title": "Phase 1 ออกแบบระบบ", "description": "ออกแบบระบบและ UX", "duration": 30, "criteria": "เอกสารออกแบบผ่านการรีวิว" },
+      { "title": "Phase 2 พัฒนา MVP", "description": "พัฒนาฟีเจอร์หลัก", "duration": 30, "criteria": "MVP ใช้งานได้" },
+      { "title": "Phase 3 ทดสอบระบบ", "description": "ทดสอบกับผู้ใช้จริง", "duration": 30, "criteria": "ผ่าน UAT" },
+      { "title": "Phase 4 เปิดใช้งาน", "description": "เปิดให้ใช้งานจริง", "duration": 30, "criteria": "ขึ้นระบบ Production" }
+    ]
+  },
+
+  "invalid": {
+    "fundingGoalBelowMin": 500,
+    "fundingGoalMinText": "1,000",
+    "fundingGoalMin": 1000,
+    "softCapBelow70": 50000,
+    "campaignDaysOver": 61,
+    "campaignDaysMax": 60,
+    "profitSharePctOver": 51,
+    "profitSharePctMax": 50,
+    "coverTooLargeMB": 6,
+    "videoTooLargeMB": 11,
+    "milestoneProjectDurationMonths": 1,
+    "milestoneDurationOver": 40,
+    "milestoneDurationClamped": 30
+  },
+
+  "faq": { "question": "โปรเจกต์จะเสร็จเมื่อไหร่?" },
+
+  "text": {
+    "myProjectsHeading": "โปรเจกต์ของฉัน",
+    "createButton": "สร้างโปรเจกต์ใหม่",
+    "overviewHeading": "ภาพรวมของโปรเจกต์",
+    "submitButton": "ส่งคำขอสร้างโปรเจกต์",
+    "nextButton": "ถัดไป",
+    "draftLabel": "แบบร่าง",
+    "pendingReviewLabel": "รอการตรวจสอบ",
+    "toastDraftLimit": "คุณมีโปรเจกต์แบบร่างครบ 5 โปรเจกต์แล้ว กรุณาลบแบบร่างเก่าก่อนสร้างโปรเจกต์ใหม่",
+    "toastFundingGoalMin": "เป้าหมายเงินทุนขั้นต่ำ 1,000 บาท",
+    "toastSoftCapMin": "Soft Cap ต้องไม่ต่ำกว่า 70% ของเป้าหมาย (70,000 บาท)",
+    "toastCampaignRange": "ระยะเวลาระดมทุนต้องอยู่ระหว่าง 1-60 วัน",
+    "toastProfitShareMax": "ส่วนแบ่งกำไรต้องไม่เกิน 50%",
+    "toastImageTooLarge": "รูปภาพต้องมีขนาดไม่เกิน 5MB",
+    "toastImageType": "อนุญาตเฉพาะไฟล์ PNG, JPEG และ WEBP เท่านั้น",
+    "toastVideoTooLarge": "วิดีโอต้องมีขนาดไม่เกิน 10MB",
+    "toastFaqRequired": "กรุณากรอกคำถามและคำตอบ",
+    "toastMilestoneClamp": "ปรับ Phase 1 เป็น 30 วัน (Phase อื่นใช้ไปแล้ว 0 วัน)",
+    "toastCoverUploaded": "อัปโหลดรูปปกสำเร็จ",
+    "toastImagesUploaded": "อัปโหลดรูปภาพสำเร็จ",
+    "videoCounterEmpty": "0/1 ไฟล์"
+  }
+}
