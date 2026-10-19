@@ -217,16 +217,40 @@ Draft Stat Count Should Be
     Get Text    ${SEL_DRAFT_STAT_COUNT}    ==    ${expected}
 
 Fill Step 1 Basics
-    Fill And Blur    ${SEL_TITLE}                  ${PROJECT}[title]
-    Fill And Blur    ${SEL_DESCRIPTION}            ${PROJECT}[description]
+    [Documentation]    Step 1: กรอกข้อมูลพื้นฐานทั้งหมดตาม test-data ทีละช่อง และรอให้ backend บันทึกแต่ละช่อง — คืนชื่อหมวดหมู่ที่เลือก
+    [Arguments]    ${id}
+    Fill Project Field And Wait Save    ${id}    ${SEL_TITLE}                  ${PROJECT}[title]
+    Fill Project Field And Wait Save    ${id}    ${SEL_DESCRIPTION}            ${PROJECT}[description]
     Click    ${SEL_CATEGORY_DROPDOWN}
     ${category}=    Get Text    ${SEL_CATEGORY_FIRST}
+    ${saved}=    Promise To Wait For Project Save    ${id}
     Click    ${SEL_CATEGORY_FIRST}
-    Fill And Blur    ${SEL_FUNDING_GOAL}           ${PROJECT}[fundingGoal]
-    Fill And Blur    ${SEL_PROJECT_DURATION}       ${PROJECT}[projectDurationMonths]
-    Fill And Blur    ${SEL_CAMPAIGN_DURATION}      ${PROJECT}[campaignDays]
-    Fill And Blur    ${SEL_REVENUE_SHARE}          ${PROJECT}[profitSharePct]
+    Save Response Should Be Ok    ${saved}    หมวดหมู่
+    Fill Project Field And Wait Save    ${id}    ${SEL_FUNDING_GOAL}           ${PROJECT}[fundingGoal]
+    Fill Project Field And Wait Save    ${id}    ${SEL_PROJECT_DURATION}       ${PROJECT}[projectDurationMonths]
+    Fill Project Field And Wait Save    ${id}    ${SEL_CAMPAIGN_DURATION}      ${PROJECT}[campaignDays]
+    Fill Project Field And Wait Save    ${id}    ${SEL_REVENUE_SHARE}          ${PROJECT}[profitSharePct]
     RETURN    ${category.strip()}
+
+Promise To Wait For Project Save
+    [Arguments]    ${id}
+    ${saved}=    Promise To    Wait For Response
+    ...    matcher=(r) => new URL(r.url()).pathname.endsWith('/pioneer/projects/${id}') && ['POST', 'PATCH'].includes(r.request().method())
+    ...    timeout=15s
+    RETURN    ${saved}
+
+Save Response Should Be Ok
+    [Arguments]    ${promise}    ${what}
+    ${res}=    Wait For    ${promise}
+    ${body}=    Evaluate    $res.get('body')
+    Should Be True    ${res}[ok]    msg=บันทึก ${what} ไม่สำเร็จ: HTTP ${res}[status] ${body}
+
+Fill Project Field And Wait Save
+    [Documentation]    กรอกช่องใน Step 1 แล้วรอ PATCH /pioneer/projects/{id}
+    [Arguments]    ${id}    ${selector}    ${value}
+    ${saved}=    Promise To Wait For Project Save    ${id}
+    Fill And Blur    ${selector}    ${value}
+    Save Response Should Be Ok    ${saved}    ช่อง ${selector}
 
 Fill Milestone Phase
     [Arguments]    ${id}    ${index}    ${milestone}
@@ -248,9 +272,7 @@ Fill Milestone Field And Wait Save
     ...    matcher=(r) => /\\/milestones(\\/\\d+)?$/.test(new URL(r.url()).pathname) && ['POST', 'PATCH'].includes(r.request().method())
     ...    timeout=15s
     Fill And Blur    ${selector}    ${value}
-    ${res}=    Wait For    ${saved}
-    ${body}=    Evaluate    $res.get('body')
-    Should Be True    ${res}[ok]    msg=บันทึก Milestone ไม่สำเร็จ: HTTP ${res}[status] ${body}
+    Save Response Should Be Ok    ${saved}    Milestone ${selector}
 
 Milestones Should Be Saved
     [Documentation]    ตรวจว่า Milestone ถูกบันทึกใน backend (เทียบจากชื่อและระยะเวลา) — fail พร้อมแสดงรายการที่ backend มีจริง

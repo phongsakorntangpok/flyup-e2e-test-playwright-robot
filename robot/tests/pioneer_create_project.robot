@@ -1,8 +1,15 @@
 *** Settings ***
 Documentation     US-14 : Pioneer สร้างโปรเจกต์
 ...               เอกสาร: docs/user-story.md และ docs/test-scenarios-and-test-cases.md
+...
+...               โครงของทุก Test Case
+...               - Test Setup    : เข้าสู่ระบบ Pioneer + จำรายการโปรเจกต์เดิมของบัญชีไว้ (snapshot)
+...               - ตัวเทสต์      : Pre-condition (เตรียมข้อมูลผ่าน API) -> ทำตามขั้นตอนบนหน้าเว็บ -> ตรวจผลทั้งบนหน้าเว็บและใน backend
+...               - Test Teardown : ลบโปรเจกต์ที่เทสต์สร้างขึ้นทั้งหมด (ระบบให้มีแบบร่างได้ไม่เกิน 5) แล้วปิด browser
 Resource          ../resources/flyup.resource
+# ก่อนทุกเทสต์: เปิด browser, login ด้วยบัญชีใน .env, หา URL ของ API และจำรายการโปรเจกต์ที่มีอยู่แล้ว
 Test Setup        Open FlyUp And Login As Pioneer
+# หลังทุกเทสต์ (ทำแม้เทสต์จะ fail): ลบโปรเจกต์ที่เทสต์สร้าง แล้วปิด browser
 Test Teardown     Cleanup And Close Browser
 Test Timeout      3 minutes
 
@@ -11,33 +18,41 @@ Test Timeout      3 minutes
 # ───────────── Scenario-14.1 การเข้าถึงและสร้างโปรเจกต์ฉบับร่าง ─────────────
 TC-14-001 [P] สร้างโปรเจกต์แบบร่างสำเร็จ
     [Tags]    positive    TC-14-001    scenario-14.1
+    # Pre-condition: แบบร่างต้องยังไม่ครบ 5 และจำจำนวนแบบร่างก่อนสร้างไว้เทียบ
     Draft Slot Should Be Available
     ${drafts_before}=    Count Draft Projects
+    # เปิดหน้า "โปรเจกต์ของฉัน" แล้วกดปุ่ม "สร้างโปรเจกต์ใหม่"
     Open My Projects Page
     Click    ${SEL_CREATE_BUTTON}
+    # ต้องถูกพาไปหน้า /project/overview/{id} — ดึง id จาก URL เก็บไว้ให้ Teardown ลบทิ้ง
     Get Url    matches    /project/overview/\\d+$
     ${url}=    Get Url
     ${id}=    Evaluate    int(re.search(r'/project/overview/(\\d+)', $url).group(1))    modules=re
     Append To List    ${CREATED_IDS}    ${id}
     Wait For Elements State    h1:has-text("${TEXT}[overviewHeading]")    visible
+    # ตรวจใน backend: โปรเจกต์ใหม่เป็น DRAFT และจำนวนแบบร่างเพิ่มขึ้น 1
     ${project}=    Get Project    ${id}
     Should Be Equal    ${project}[state]    draft
     ${drafts_after}=    Count Draft Projects
     Should Be Equal As Integers    ${drafts_after}    ${drafts_before + 1}
+    # ตรวจบนหน้าเว็บ: การ์ด "แบบร่าง" แสดงจำนวนใหม่
     Open My Projects Page
     Draft Stat Count Should Be    ${drafts_after}
 
 TC-14-002 [N] สร้างโปรเจกต์ไม่ได้เมื่อมีแบบร่างครบ 5 โปรเจกต์
     [Tags]    negative    TC-14-002    scenario-14.1
+    # Pre-condition: สร้างแบบร่างผ่าน API จนครบ 5 (ถ้าบัญชีมีอยู่แล้วบางส่วน จะสร้างเฉพาะที่ขาด)
     ${existing}=    Count Draft Projects
     FOR    ${i}    IN RANGE    ${existing}    ${MAX_DRAFT_PROJECTS}
         Create Draft Project Via API
     END
     ${drafts_before}=    Count Draft Projects
     Should Be True    ${drafts_before} >= ${MAX_DRAFT_PROJECTS}
+    # หน้าเว็บต้องเห็นแบบร่างครบแล้ว จากนั้นลองกดสร้างใหม่
     Open My Projects Page
     Draft Stat Count Should Be    ${drafts_before}
     Click    ${SEL_CREATE_BUTTON}
+    # ต้องขึ้นข้อความแจ้งเตือน, อยู่หน้าเดิม และไม่มีโปรเจกต์ใหม่เกิดขึ้น
     Toast Should Be Visible    ${TEXT}[toastDraftLimit]
     Get Url    contains    /pioneer/dashboard/projects
     ${drafts_after}=    Count Draft Projects
@@ -46,11 +61,15 @@ TC-14-002 [N] สร้างโปรเจกต์ไม่ได้เมื
 # ───────────── Scenario-14.2 กรอกข้อมูลพื้นฐานโปรเจกต์ (Step 1) ─────────────
 TC-14-003 [P] กรอกข้อมูลพื้นฐานครบถ้วนและบันทึกอัตโนมัติ
     [Tags]    positive    TC-14-003    scenario-14.2
+    # Pre-condition: สร้างแบบร่างชื่อ "AUTO TC-14-003" ผ่าน API แล้วเปิด Step 1 (รอจนหน้าโหลดชื่อนี้ขึ้นมา)
     ${id}    ${title}=    Prepare Draft    TC-14-003
     Open Step 1    ${id}    ${title}
-    ${category}=    Fill Step 1 Basics
+    # กรอกชื่อ, คำอธิบาย, หมวดหมู่, เป้าหมาย, ระยะเวลา, ระดมทุน, ส่วนแบ่งกำไร — รอ backend บันทึกทีละช่อง
+    ${category}=    Fill Step 1 Basics    ${id}
+    # ระบบคำนวณ Soft Cap (70%) และยอดลงทุนขั้นต่ำ (1%) อัตโนมัติ
     Input Value Should Be    ${SEL_SOFT_CAP}      ${PROJECT}[expectedSoftCapText]
     Input Value Should Be    ${SEL_MIN_INVEST}    ${PROJECT}[expectedMinInvestText]
+    # ตรวจใน backend ว่าทุกช่องถูกบันทึกตรงกับที่กรอก และยังเป็น DRAFT
     Project Should Match    ${id}
     ...    state=draft
     ...    title=${PROJECT}[title]
@@ -66,7 +85,9 @@ TC-14-004 [N] เป้าหมายเงินทุนต่ำกว่า
     [Tags]    negative    TC-14-004    scenario-14.2
     ${id}    ${title}=    Prepare Draft    TC-14-004
     Open Step 1    ${id}    ${title}
+    # กรอกเป้าหมาย 500 บาท แล้วออกจากช่อง (Tab)
     Fill And Blur    ${SEL_FUNDING_GOAL}    ${INVALID}[fundingGoalBelowMin]
+    # ต้องขึ้นข้อความเตือน, ช่องถูกปรับเป็น 1,000 และ backend บันทึก 1,000
     Toast Should Be Visible    ${TEXT}[toastFundingGoalMin]
     Input Value Should Be    ${SEL_FUNDING_GOAL}    ${INVALID}[fundingGoalMinText]
     Project Should Match    ${id}    fundingGoal=${INVALID}[fundingGoalMin]
@@ -75,8 +96,10 @@ TC-14-005 [N] Soft Cap ต่ำกว่า 70% ของเป้าหมา�
     [Tags]    negative    TC-14-005    scenario-14.2
     ${id}    ${title}=    Prepare Draft    TC-14-005
     Open Step 1    ${id}    ${title}
+    # ตั้งเป้าหมาย 100,000 ก่อน แล้วกรอก Soft Cap 50,000 (ต่ำกว่า 70% = 70,000)
     Fill And Blur    ${SEL_FUNDING_GOAL}    ${PROJECT}[fundingGoal]
     Fill And Blur    ${SEL_SOFT_CAP}        ${INVALID}[softCapBelow70]
+    # ต้องขึ้นข้อความเตือน และ Soft Cap ถูกปรับเป็น 70,000 ทั้งบนหน้าเว็บและใน backend
     Toast Should Be Visible    ${TEXT}[toastSoftCapMin]
     Input Value Should Be    ${SEL_SOFT_CAP}    ${PROJECT}[expectedSoftCapText]
     Project Should Match    ${id}    softCap=${PROJECT}[expectedSoftCap]
@@ -85,7 +108,9 @@ TC-14-006 [N] ระยะเวลาระดมทุนเกิน 60 ว�
     [Tags]    negative    TC-14-006    scenario-14.2
     ${id}    ${title}=    Prepare Draft    TC-14-006
     Open Step 1    ${id}    ${title}
+    # กรอกระยะเวลาระดมทุน 61 วัน (เกินสูงสุด 60)
     Fill And Blur    ${SEL_CAMPAIGN_DURATION}    ${INVALID}[campaignDaysOver]
+    # ต้องขึ้นข้อความเตือน และค่าถูกปรับเป็น 60 ทั้งบนหน้าเว็บและใน backend
     Toast Should Be Visible    ${TEXT}[toastCampaignRange]
     Input Value Should Be    ${SEL_CAMPAIGN_DURATION}    ${INVALID}[campaignDaysMax]
     Project Should Match    ${id}    campaignDays=${INVALID}[campaignDaysMax]
@@ -94,7 +119,9 @@ TC-14-007 [N] ส่วนแบ่งกำไรเกิน 50%
     [Tags]    negative    TC-14-007    scenario-14.2
     ${id}    ${title}=    Prepare Draft    TC-14-007
     Open Step 1    ${id}    ${title}
+    # กรอกส่วนแบ่งกำไร 51% (เกินสูงสุด 50%)
     Fill And Blur    ${SEL_REVENUE_SHARE}    ${INVALID}[profitSharePctOver]
+    # ต้องขึ้นข้อความเตือน และค่าถูกปรับเป็น 50 ทั้งบนหน้าเว็บและใน backend
     Toast Should Be Visible    ${TEXT}[toastProfitShareMax]
     Input Value Should Be    ${SEL_REVENUE_SHARE}    ${INVALID}[profitSharePctMax]
     Project Should Match    ${id}    profitSharePct=${INVALID}[profitSharePctMax]
@@ -104,8 +131,10 @@ TC-14-008 [N] รูปภาพปกขนาดเกิน 5MB
     [Tags]    negative    TC-14-008    scenario-14.3
     ${id}    ${title}=    Prepare Draft    TC-14-008
     Open Step 1    ${id}    ${title}
+    # สร้างไฟล์ .png ขนาด 6MB (ใน results/test-files) แล้วเลือกใส่ช่องรูปปก
     ${file}=    Create Large File    large-${INVALID}[coverTooLargeMB]mb.png    ${INVALID}[coverTooLargeMB]
     Upload File By Selector    ${SEL_COVER_INPUT}    ${file}
+    # ต้องขึ้นข้อความเตือน, ไม่มีรูปปกแสดง (ยังเป็นช่องอัปโหลด) และ backend ไม่มีรูปปก
     Toast Should Be Visible    ${TEXT}[toastImageTooLarge]
     Wait For Elements State    ${SEL_COVER_DROPZONE}    visible
     Get Element Count    ${SEL_COVER_PREVIEW}    ==    0
@@ -115,8 +144,10 @@ TC-14-009 [N] รูปภาพปกนามสกุลไม่รองร
     [Tags]    negative    TC-14-009    scenario-14.3
     ${id}    ${title}=    Prepare Draft    TC-14-009
     Open Step 1    ${id}    ${title}
+    # สร้างไฟล์ .gif (รองรับแค่ PNG / JPEG / WEBP) แล้วเลือกใส่ช่องรูปปก
     ${file}=    Create Gif File
     Upload File By Selector    ${SEL_COVER_INPUT}    ${file}
+    # ต้องขึ้นข้อความเตือน, ไม่มีรูปปกแสดง และ backend ไม่มีรูปปก
     Toast Should Be Visible    ${TEXT}[toastImageType]
     Wait For Elements State    ${SEL_COVER_DROPZONE}    visible
     Get Element Count    ${SEL_COVER_PREVIEW}    ==    0
@@ -126,8 +157,10 @@ TC-14-010 [N] วิดีโอขนาดเกิน 10MB
     [Tags]    negative    TC-14-010    scenario-14.3
     ${id}    ${title}=    Prepare Draft    TC-14-010
     Open Step 1    ${id}    ${title}
+    # สร้างไฟล์ .mp4 ขนาด 11MB แล้วเลือกใส่ช่องวิดีโอ
     ${file}=    Create Large File    large-${INVALID}[videoTooLargeMB]mb.mp4    ${INVALID}[videoTooLargeMB]
     Upload File By Selector    ${SEL_VIDEO_INPUT}    ${file}
+    # ต้องขึ้นข้อความเตือน, ตัวนับยังเป็น "0/1 ไฟล์" และ backend ไม่มีวิดีโอ
     Toast Should Be Visible    ${TEXT}[toastVideoTooLarge]
     Wait For Elements State    text="${TEXT}[videoCounterEmpty]"    visible
     Project Should Match    ${id}    videoCount=0
@@ -135,10 +168,13 @@ TC-14-010 [N] วิดีโอขนาดเกิน 10MB
 # ───────────── Scenario-14.4 เรื่องราวและคำถามที่พบบ่อย (Step 2) ─────────────
 TC-14-011 [N] เพิ่ม FAQ โดยไม่กรอกคำตอบ
     [Tags]    negative    TC-14-011    scenario-14.4
+    # Pre-condition: แบบร่างใหม่ แล้วเปิด Step 2
     ${id}    ${title}=    Prepare Draft    TC-14-011
     Open Project Page    ${id}    2
+    # กรอกเฉพาะคำถาม (เว้นคำตอบว่าง) แล้วกด "เพิ่ม FAQ"
     Fill Text    ${SEL_FAQ_QUESTION}    ${FAQ}[question]
     Click    ${SEL_FAQ_ADD}
+    # ต้องขึ้นข้อความเตือน, คำถามยังค้างอยู่ในช่อง และ backend ไม่มี FAQ ถูกบันทึก
     Toast Should Be Visible    ${TEXT}[toastFaqRequired]
     Input Value Should Be    ${SEL_FAQ_QUESTION}    ${FAQ}[question]
     ${faqs}=    FlyUp Api    faqs    ${id}
@@ -147,10 +183,13 @@ TC-14-011 [N] เพิ่ม FAQ โดยไม่กรอกคำตอบ
 # ───────────── Scenario-14.5 กำหนด Milestone (Step 3) ─────────────
 TC-14-012 [N] ระยะเวลา Milestone รวมเกินระยะเวลาโปรเจกต์
     [Tags]    negative    TC-14-012    scenario-14.5
+    # Pre-condition: แบบร่างที่ตั้งระยะเวลาโปรเจกต์ 1 เดือน (= 30 วัน) ผ่าน API แล้วเปิด Step 3
     ${update}=    Create Dictionary    duration_months=${INVALID}[milestoneProjectDurationMonths]
     ${id}    ${title}=    Prepare Draft    TC-14-012    update=${update}
     Open Project Page    ${id}    3
+    # กรอกระยะเวลา Phase 1 = 40 วัน (เกิน 30 วันของโปรเจกต์)
     Fill And Blur    ${SEL_MS_DURATION}    ${INVALID}[milestoneDurationOver]
+    # ต้องขึ้นข้อความเตือน และระยะเวลาถูกปรับเป็น 30 วันทั้งบนหน้าเว็บและใน backend
     Toast Should Be Visible    ${TEXT}[toastMilestoneClamp]
     Input Value Should Be    ${SEL_MS_DURATION}    ${INVALID}[milestoneDurationClamped]
     Wait Until Keyword Succeeds    15s    1s    Milestone Phase 1 Duration Should Be    ${id}    ${INVALID}[milestoneDurationClamped]
@@ -158,71 +197,93 @@ TC-14-012 [N] ระยะเวลา Milestone รวมเกินระย�
 # ───────────── Scenario-14.6 ยืนยันและส่งคำขอสร้างโปรเจกต์ (Step 4) ─────────────
 TC-14-013 [N] ไม่ติ๊กยอมรับข้อตกลง ปุ่มส่งคำขอกดไม่ได้
     [Tags]    negative    TC-14-013    scenario-14.6
+    # Pre-condition: ไม่มีโปรเจกต์อื่นที่ active (ไม่งั้นปุ่มจะกดไม่ได้ด้วยเหตุผลอื่น)
+    # และเตรียมแบบร่างที่กรอก Milestone ครบ 4 Phase ผ่าน API ให้เหลือเงื่อนไขเดียวคือการยอมรับข้อตกลง
     No Blocking Project Should Exist
     ${update}=    Create Dictionary    duration_months=${PROJECT}[projectDurationMonths]
     ${id}    ${title}=    Prepare Draft    TC-14-013    update=${update}    milestones=${MILESTONES}
     Open Project Page    ${id}    4
+    # ยังไม่ติ๊กยอมรับ -> ปุ่ม "ส่งคำขอสร้างโปรเจกต์" ต้องกดไม่ได้
     Get Checkbox State    ${SEL_AGREE_CHECKBOX}    ==    unchecked
     Wait For Elements State    ${SEL_SUBMIT_BUTTON}    disabled
-    # ยืนยันว่าสาเหตุคือการไม่ยอมรับข้อตกลง: ติ๊กแล้วปุ่มต้องกดได้
+    # ยืนยันว่าสาเหตุคือการไม่ยอมรับข้อตกลง: ติ๊กแล้วปุ่มต้องกดได้ (แต่ไม่กดส่งจริง)
     Check Checkbox    ${SEL_AGREE_CHECKBOX}
     Wait For Elements State    ${SEL_SUBMIT_BUTTON}    enabled
     Project Should Match    ${id}    state=draft
 
 TC-14-014 [N] ข้อมูลไม่ครบถ้วน ปุ่มส่งคำขอในหน้าภาพรวมกดไม่ได้
     [Tags]    negative    TC-14-014    scenario-14.6
+    # Pre-condition: แบบร่างที่มีแค่ชื่อ แล้วเปิดหน้าภาพรวมของโปรเจกต์
     ${id}    ${title}=    Prepare Draft    TC-14-014
     Open Project Page    ${id}
+    # ข้อมูลยังไม่ครบ -> ปุ่มส่งคำขอต้องกดไม่ได้ และโปรเจกต์ยังเป็น DRAFT
     Wait For Elements State    h1:has-text("${TEXT}[overviewHeading]")    visible
     Wait For Elements State    ${SEL_SUBMIT_BUTTON}    disabled
     Project Should Match    ${id}    state=draft
 
 TC-14-015 [P] สร้างและส่งคำขอสร้างโปรเจกต์สำเร็จ (ครบทุกขั้นตอน)
     [Tags]    positive    TC-14-015    scenario-14.6
+    # เทสต์นี้ยาว (อัปโหลดไฟล์ + กรอก 4 step) จึงให้เวลา 5 นาที
     [Timeout]    5 minutes
+    # Pre-condition: แบบร่างยังไม่ครบ 5 และไม่มีโปรเจกต์อื่นที่ active (ไม่งั้นส่งคำขอไม่ได้)
     Draft Slot Should Be Available
     No Blocking Project Should Exist
-    # 1. สร้างโปรเจกต์ใหม่จากหน้า "โปรเจกต์ของฉัน"
+
+    # 1. สร้างโปรเจกต์ใหม่จากหน้า "โปรเจกต์ของฉัน" แล้วดึง id จาก URL เก็บไว้ให้ Teardown ลบทิ้ง
     Open My Projects Page
     Click    ${SEL_CREATE_BUTTON}
     Get Url    matches    /project/overview/\\d+$
     ${url}=    Get Url
     ${id}=    Evaluate    int(re.search(r'/project/overview/(\\d+)', $url).group(1))    modules=re
     Append To List    ${CREATED_IDS}    ${id}
+
     # 2. Step 1: กรอกข้อมูลพื้นฐานและอัปโหลดรูปปก + รูปประกอบ
-    Open Project Page    ${id}    1
-    Fill Step 1 Basics
+    # รอให้หน้าโหลดข้อมูลโปรเจกต์ (ชื่อเริ่มต้นจาก backend) เสร็จก่อนกรอก ไม่งั้นแอปจะเขียนทับค่าที่พิมพ์
+    ${current}=    Get Project    ${id}
+    Open Step 1    ${id}    ${current}[title]
+    Fill Step 1 Basics    ${id}
+    # อัปโหลดรูปปก (PNG 1x1 px) แล้วรอข้อความ "อัปโหลดรูปปกสำเร็จ" และรูปตัวอย่าง
     ${cover}=    Create Valid Png    cover.png
     Upload File By Selector    ${SEL_COVER_INPUT}    ${cover}
     Toast Should Be Visible    ${TEXT}[toastCoverUploaded]    timeout=60s
     Wait For Elements State    ${SEL_COVER_PREVIEW}    visible
+    # อัปโหลดรูปประกอบ 1 รูป แล้วรอข้อความสำเร็จและตัวนับ "1/5 รูป"
     ${image}=    Create Valid Png    image-1.png
     Upload File By Selector    ${SEL_IMAGES_INPUT}    ${image}
     Toast Should Be Visible    ${TEXT}[toastImagesUploaded]    timeout=60s
     Wait For Elements State    text="1/5 รูป"    visible
+    # ตรวจ backend ว่าข้อมูล Step 1 ถูกบันทึกแล้ว จากนั้นกด "ถัดไป" ไป Step 2
     Project Should Match    ${id}    title=${PROJECT}[title]    fundingGoal=${PROJECT}[fundingGoal]    imageCount=1
     Click    ${SEL_NEXT_LINK}
     Get Url    matches    /project/overview/${id}/step/2$
-    # 3. Step 2: กรอกเรื่องราวและความเสี่ยง
+
+    # 3. Step 2: พิมพ์เรื่องราวใน Rich Text Editor และกรอกความเสี่ยง
     Click    ${SEL_STORY_EDITOR}
     Keyboard Input    type    ${PROJECT}[story]
     Fill And Blur    ${SEL_RISK}    ${PROJECT}[risk]
+    # รอจน backend บันทึกทั้ง Story และความเสี่ยง (Story บันทึกแบบหน่วงเวลา) แล้วไป Step 3
     Wait Until Keyword Succeeds    15s    1s    Story And Risk Should Be Saved    ${id}
     Click    ${SEL_NEXT_LINK}
     Get Url    matches    /project/overview/${id}/step/3$
-    # 4. Step 3: กรอก Milestone ครบ 4 Phase
+
+    # 4. Step 3: กรอก Milestone ครบ 4 Phase — แต่ละ Phase กรอกทีละช่อง รอ backend บันทึก และตรวจว่า Phase นั้นอยู่ใน backend
     FOR    ${index}    ${milestone}    IN ENUMERATE    @{MILESTONES}
         Fill Milestone Phase    ${id}    ${index}    ${milestone}
     END
+    # ตรวจซ้ำว่าครบทั้ง 4 Phase แล้วไป Step 4
     Milestones Should Be Saved    ${id}    ทั้ง 4 Phase    ${MILESTONES}
     Click    ${SEL_NEXT_LINK}
     Get Url    matches    /project/overview/${id}/step/4$
-    # 5. Step 4: ยอมรับข้อตกลงและส่งคำขอ
+
+    # 5. Step 4: ติ๊กยอมรับ -> ปุ่มส่งคำขอต้องกดได้ -> กดส่ง -> กดยืนยัน "ส่งคำขอ" ใน Modal
     Check Checkbox    ${SEL_AGREE_CHECKBOX}
     Wait For Elements State    ${SEL_SUBMIT_BUTTON}    enabled
     Click    ${SEL_SUBMIT_BUTTON}
     Click    ${SEL_STEP4_CONFIRM}
-    # 6. ระบบเปลี่ยนสถานะเป็น "รอการตรวจสอบ" และพากลับหน้าโปรเจกต์ของฉัน
+
+    # 6. ต้องกลับมาหน้า "โปรเจกต์ของฉัน", backend เปลี่ยนสถานะเป็น PENDING_REVIEW
+    #    และ badge ข้างชื่อโปรเจกต์ต้องเป็น "รอการตรวจสอบ"
     Wait Until Keyword Succeeds    30s    1s    Get Url    matches    /pioneer/dashboard/projects$
     Project Should Match    ${id}    state=pending_review
     Get Text    css=h3:text-is("${PROJECT}[title]") + span >> nth=0    ==    ${TEXT}[pendingReviewLabel]
+    # Post-condition (Teardown): ถอนคำขอให้กลับเป็นแบบร่าง แล้วลบโปรเจกต์

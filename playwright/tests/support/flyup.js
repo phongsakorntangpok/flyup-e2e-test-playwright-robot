@@ -182,17 +182,51 @@ class FlyUp {
   }
 
   /**
-   * กรอกช่องของ Milestone แล้วรอ response ของการบันทึก (POST/PATCH .../milestones)
+   * ทำ action แล้วรอ response ของการบันทึก (POST/PATCH ที่ path ตรงกับ pathRegex)
    * ถ้า backend ตอบ error จะ fail พร้อมแสดงข้อความจาก backend
    */
-  async fillMilestoneFieldAndWaitSave(selector, value) {
+  async waitForSave(pathRegex, action, what) {
     const saved = this.page.waitForResponse((r) =>
-      /\/milestones(\/\d+)?$/.test(new URL(r.url()).pathname) && ['POST', 'PATCH'].includes(r.request().method()),
+      pathRegex.test(new URL(r.url()).pathname) && ['POST', 'PATCH'].includes(r.request().method()),
     { timeout: 15_000 });
-    await this.fillAndBlur(selector, value);
-    const res = await saved;
-    expect(res.ok(), `บันทึก Milestone ไม่สำเร็จ: ${res.request().method()} ${res.url()} -> HTTP ${res.status()} ${await res.text()}`)
+    await action();
+    let res;
+    try {
+      res = await saved;
+    } catch (e) {
+      throw new Error(`ไม่พบคำขอบันทึก ${what} ภายใน 15 วินาที (แอปไม่ได้ส่งข้อมูลไป backend)`);
+    }
+    expect(res.ok(), `บันทึก ${what} ไม่สำเร็จ: ${res.request().method()} ${res.url()} -> HTTP ${res.status()} ${await res.text()}`)
       .toBe(true);
+  }
+
+  /** กรอกช่องใน Step 1 แล้วรอ PATCH /pioneer/projects/{id} */
+  fillProjectFieldAndWaitSave(id, selector, value) {
+    return this.waitForSave(new RegExp(`/pioneer/projects/${id}$`), () => this.fillAndBlur(selector, value), `ช่อง ${selector}`);
+  }
+
+  /** กรอกช่องของ Milestone แล้วรอ POST/PATCH .../milestones */
+  fillMilestoneFieldAndWaitSave(selector, value) {
+    return this.waitForSave(/\/milestones(\/\d+)?$/, () => this.fillAndBlur(selector, value), `Milestone ${selector}`);
+  }
+
+  /**
+   * Step 1: กรอกข้อมูลพื้นฐานทั้งหมดตาม test-data ทีละช่อง และรอให้ backend บันทึกแต่ละช่อง
+   * @returns ชื่อหมวดหมู่ที่เลือก
+   */
+  async fillStep1Basics(id) {
+    const P = DATA.project;
+    await this.fillProjectFieldAndWaitSave(id, SEL.title, P.title);
+    await this.fillProjectFieldAndWaitSave(id, SEL.description, P.description);
+    await this.page.locator(SEL.categoryDropdown).click();
+    const option = this.page.locator(SEL.categoryFirstOption);
+    const category = (await option.innerText()).trim();
+    await this.waitForSave(new RegExp(`/pioneer/projects/${id}$`), () => option.click(), 'หมวดหมู่');
+    await this.fillProjectFieldAndWaitSave(id, SEL.fundingGoal, P.fundingGoal);
+    await this.fillProjectFieldAndWaitSave(id, SEL.projectDuration, P.projectDurationMonths);
+    await this.fillProjectFieldAndWaitSave(id, SEL.campaignDuration, P.campaignDays);
+    await this.fillProjectFieldAndWaitSave(id, SEL.revenueShare, P.profitSharePct);
+    return category;
   }
 
   /**

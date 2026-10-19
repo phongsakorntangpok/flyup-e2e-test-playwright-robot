@@ -35,6 +35,8 @@ flyup-test-wright-robot/
 │       └── support/flyup.js                 # login, selectors, helpers, cleanup
 └── robot/
     ├── requirements.txt
+    ├── setup.bat               # ติดตั้ง Robot ครั้งแรก (Windows)
+    ├── run.bat                 # รัน Robot (Windows) เช่น run.bat --include TC-14-001
     ├── variables.py             # อ่านค่าจาก .env และ shared/test-data.json
     ├── resources/
     │   ├── flyup.resource       # keywords: login, selectors, helpers, cleanup
@@ -104,35 +106,55 @@ npx playwright show-report        # ดูรายงาน HTML (playwright-re
 
 ## 3. Robot Framework
 
-### ติดตั้ง
+> คำสั่ง `robot` จะใช้ได้ก็ต่อเมื่อติดตั้งแล้ว **และ** activate venv แล้ว ถ้าขึ้น `'robot' is not recognized` แปลว่ายังไม่ได้ทำ 2 อย่างนี้
+> วิธีที่ง่ายที่สุดคือใช้ `setup.bat` / `run.bat` ซึ่งไม่ต้อง activate เอง
 
-```powershell
-cd robot
-python -m venv .venv
-.venv\Scripts\Activate.ps1          # macOS/Linux: source .venv/bin/activate
-pip install -r requirements.txt
-rfbrowser init chromium             # ติดตั้ง Playwright + Chromium ของ Browser library (ครั้งแรกครั้งเดียว)
+### วิธีที่ 1 (แนะนำบน Windows): `setup.bat` + `run.bat`
+
+```bat
+cd C:\projects\flyup-test-wright-robot\robot
+setup.bat                        :: ติดตั้งครั้งแรกครั้งเดียว (สร้าง .venv, ติดตั้ง package, rfbrowser init chromium)
+run.bat                          :: รันทั้งหมด
+run.bat --include TC-14-001      :: รันเฉพาะ Test Case เดียว (TC-14-001 ถึง TC-14-015)
+run.bat --include negative       :: เฉพาะ negative (หรือ positive / scenario-14.2)
+run.bat --variable HEADLESS:False  :: เปิด browser ให้เห็น
 ```
 
-> ถ้า PowerShell ไม่ยอมรัน `Activate.ps1` ให้รัน `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` ก่อน
+### วิธีที่ 2: ติดตั้งเอง
 
-### รันทั้งหมด
+**cmd**
 
-```powershell
+```bat
+cd C:\projects\flyup-test-wright-robot\robot
+python -m venv .venv
+.venv\Scripts\activate.bat
+pip install -r requirements.txt
+rfbrowser init chromium
 robot --outputdir results tests
 ```
 
-### รันเฉพาะ Test Case เดียว / บางกลุ่ม
+**PowerShell**
 
 ```powershell
-robot --outputdir results --include TC-14-001 tests       # เคสเดียว (TC-14-001 ถึง TC-14-015)
-robot --outputdir results --include positive tests        # เฉพาะ positive
-robot --outputdir results --include negative tests        # เฉพาะ negative
-robot --outputdir results --include scenario-14.2 tests   # เฉพาะ Scenario
+cd C:\projects\flyup-test-wright-robot\robot
+python -m venv .venv
+.venv\Scripts\Activate.ps1          # ถ้าไม่ยอมรัน: Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+pip install -r requirements.txt
+rfbrowser init chromium
+robot --outputdir results tests
 ```
 
-หรือเลือกตามชื่อ: `robot --outputdir results --test "TC-14-001*" tests`
-รันแบบเห็น browser: `robot --outputdir results --variable HEADLESS:False tests`
+ครั้งต่อไปเปิด terminal ใหม่ ต้อง activate venv ก่อนทุกครั้ง (`.venv\Scripts\activate.bat` หรือ `Activate.ps1`)
+หรือเรียกตรงโดยไม่ activate: `.venv\Scripts\python.exe -m robot --outputdir results tests`
+
+### รันเฉพาะ Test Case เดียว / บางกลุ่ม (หลัง activate venv)
+
+```bat
+robot --outputdir results --include TC-14-001 tests       :: เคสเดียว
+robot --outputdir results --include positive tests        :: เฉพาะ positive
+robot --outputdir results --include negative tests        :: เฉพาะ negative
+robot --outputdir results --include scenario-14.2 tests   :: เฉพาะ Scenario
+```
 
 ผลลัพธ์อยู่ที่ `robot/results/report.html` และ `robot/results/log.html`
 
@@ -169,5 +191,6 @@ robot --outputdir results --include scenario-14.2 tests   # เฉพาะ Scen
 | `บัญชีมีโปรเจกต์ที่กำลังระดมทุน/ดำเนินการ/รอตรวจสอบอยู่ ...` | TC-14-013 / TC-14-015 ต้องใช้บัญชีที่ไม่มีโปรเจกต์ active |
 | ขึ้นกล่อง "ยังไม่พร้อมสร้างโปรเจกต์" | บัญชียังยืนยันตัวตน / บัญชีธนาคารไม่ครบ |
 | `หา API base URL ไม่เจอ` | ใส่ `API_BASE_URL` ใน `.env` เป็น URL ของ backend |
-| `RF-Browser dependencies not found` | ยังไม่ได้รัน `rfbrowser init chromium` |
+| `'robot' is not recognized ...` | ยังไม่ได้ติดตั้ง / ยังไม่ได้ activate venv — รัน `robot\setup.bat` แล้วใช้ `robot\run.bat` |
+| `RF-Browser dependencies not found` | ยังไม่ได้รัน `rfbrowser init chromium` (หรือ `setup.bat`) |
 | Executable doesn't exist (Playwright) | รัน `npx playwright install chromium` |
