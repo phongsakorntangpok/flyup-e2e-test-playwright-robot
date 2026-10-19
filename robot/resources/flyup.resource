@@ -229,11 +229,41 @@ Fill Step 1 Basics
     RETURN    ${category.strip()}
 
 Fill Milestone Phase
-    [Arguments]    ${index}    ${milestone}
+    [Arguments]    ${id}    ${index}    ${milestone}
     ${phase}=    Evaluate    ${index} + 1
     IF    ${index} > 0    Click    css=button:text-is("Phase ${phase}")
     Wait For Elements State    css=h2:text-is("Milestone ${phase}")    visible
-    Fill And Blur    ${SEL_MS_TITLE}          ${milestone}[title]
-    Fill And Blur    ${SEL_MS_DESCRIPTION}    ${milestone}[description]
-    Fill And Blur    ${SEL_MS_DURATION}       ${milestone}[duration]
-    Fill And Blur    ${SEL_MS_CRITERIA_1}     ${milestone}[criteria]
+    # รอให้ backend บันทึกเสร็จทีละช่อง (กันการยิง request บันทึกซ้อนกัน)
+    Fill Milestone Field And Wait Save    ${SEL_MS_TITLE}          ${milestone}[title]
+    Fill Milestone Field And Wait Save    ${SEL_MS_DESCRIPTION}    ${milestone}[description]
+    Fill Milestone Field And Wait Save    ${SEL_MS_DURATION}       ${milestone}[duration]
+    Fill Milestone Field And Wait Save    ${SEL_MS_CRITERIA_1}     ${milestone}[criteria]
+    ${expected}=    Create List    ${milestone}
+    Milestones Should Be Saved    ${id}    Phase ${phase}    ${expected}
+
+Fill Milestone Field And Wait Save
+    [Documentation]    กรอกช่องของ Milestone แล้วรอ response ของการบันทึก (POST/PATCH .../milestones)
+    [Arguments]    ${selector}    ${value}
+    ${saved}=    Promise To    Wait For Response
+    ...    matcher=(r) => /\\/milestones(\\/\\d+)?$/.test(new URL(r.url()).pathname) && ['POST', 'PATCH'].includes(r.request().method())
+    ...    timeout=15s
+    Fill And Blur    ${selector}    ${value}
+    ${res}=    Wait For    ${saved}
+    ${body}=    Evaluate    $res.get('body')
+    Should Be True    ${res}[ok]    msg=บันทึก Milestone ไม่สำเร็จ: HTTP ${res}[status] ${body}
+
+Milestones Should Be Saved
+    [Documentation]    ตรวจว่า Milestone ถูกบันทึกใน backend (เทียบจากชื่อและระยะเวลา) — fail พร้อมแสดงรายการที่ backend มีจริง
+    [Arguments]    ${id}    ${label}    ${expected}
+    ${ok}=    Run Keyword And Return Status    Wait Until Keyword Succeeds    20s    1s
+    ...    Milestones Should Contain    ${id}    ${expected}
+    IF    not ${ok}
+        ${actual}=    FlyUp Api    milestones    ${id}
+        Fail    Milestone ${label} ไม่ถูกบันทึกใน backend\nที่ backend มีจริง: ${actual}
+    END
+
+Milestones Should Contain
+    [Arguments]    ${id}    ${expected}
+    ${actual}=    FlyUp Api    milestones    ${id}
+    ${ok}=    Evaluate    (lambda actual, expected: all(any(a['title'] == m['title'] and a['duration'] == int(m['duration']) for a in actual) for m in expected))($actual, $expected)
+    Should Be True    ${ok}

@@ -212,9 +212,9 @@ TC-14-015 [P] สร้างและส่งคำขอสร้างโป
     Get Url    matches    /project/overview/${id}/step/3$
     # 4. Step 3: กรอก Milestone ครบ 4 Phase
     FOR    ${index}    ${milestone}    IN ENUMERATE    @{MILESTONES}
-        Fill Milestone Phase    ${index}    ${milestone}
+        Fill Milestone Phase    ${id}    ${index}    ${milestone}
     END
-    Wait Until Keyword Succeeds    20s    1s    Completed Milestones Should Be    ${id}    4
+    Milestones Should Be Saved    ${id}    ทั้ง 4 Phase    ${MILESTONES}
     Click    ${SEL_NEXT_LINK}
     Get Url    matches    /project/overview/${id}/step/4$
     # 5. Step 4: ยอมรับข้อตกลงและส่งคำขอ

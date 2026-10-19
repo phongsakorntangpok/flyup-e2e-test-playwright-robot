@@ -294,13 +294,14 @@ test.describe('Scenario-14.6 ยืนยันและส่งคำขอส
         const m = P.milestones[i];
         if (i > 0) await page.getByRole('button', { name: `Phase ${i + 1}`, exact: true }).click();
         await expect(page.getByRole('heading', { name: `Milestone ${i + 1}`, exact: true })).toBeVisible();
-        await flyup.fillAndBlur(SEL.milestoneTitle, m.title);
-        await flyup.fillAndBlur(SEL.milestoneDescription, m.description);
-        await flyup.fillAndBlur(SEL.milestoneDuration, m.duration);
-        await flyup.fillAndBlur(SEL.milestoneCriteria1, m.criteria);
+        // รอให้ backend บันทึกเสร็จทีละช่อง (กันการยิง request บันทึกซ้อนกัน)
+        await flyup.fillMilestoneFieldAndWaitSave(SEL.milestoneTitle, m.title);
+        await flyup.fillMilestoneFieldAndWaitSave(SEL.milestoneDescription, m.description);
+        await flyup.fillMilestoneFieldAndWaitSave(SEL.milestoneDuration, m.duration);
+        await flyup.fillMilestoneFieldAndWaitSave(SEL.milestoneCriteria1, m.criteria);
+        await flyup.expectMilestoneSaved(id, i + 1, m);
       }
-      await expect.poll(async () => (await flyup.milestones(id))
-        .filter((m) => m.title && m.duration > 0).length, { timeout: 20_000 }).toBe(4);
+      await flyup.expectMilestoneSaved(id, 'ทั้ง 4 Phase', null, P.milestones);
       await page.getByRole('link', { name: TEXT.nextButton }).click();
       await expect(page).toHaveURL(new RegExp(`/project/overview/${id}/step/4$`));
     });

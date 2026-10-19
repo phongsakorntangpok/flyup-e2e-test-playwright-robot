@@ -181,6 +181,37 @@ class FlyUp {
     await input.press('Tab');
   }
 
+  /**
+   * กรอกช่องของ Milestone แล้วรอ response ของการบันทึก (POST/PATCH .../milestones)
+   * ถ้า backend ตอบ error จะ fail พร้อมแสดงข้อความจาก backend
+   */
+  async fillMilestoneFieldAndWaitSave(selector, value) {
+    const saved = this.page.waitForResponse((r) =>
+      /\/milestones(\/\d+)?$/.test(new URL(r.url()).pathname) && ['POST', 'PATCH'].includes(r.request().method()),
+    { timeout: 15_000 });
+    await this.fillAndBlur(selector, value);
+    const res = await saved;
+    expect(res.ok(), `บันทึก Milestone ไม่สำเร็จ: ${res.request().method()} ${res.url()} -> HTTP ${res.status()} ${await res.text()}`)
+      .toBe(true);
+  }
+
+  /**
+   * ตรวจว่า Milestone ถูกบันทึกใน backend (เทียบจากชื่อและระยะเวลา)
+   * fail พร้อมแสดงรายการ Milestone ที่ backend มีจริง เพื่อดูว่า Phase ไหนหาย
+   */
+  async expectMilestoneSaved(id, label, milestone, all = null) {
+    const expected = all || [milestone];
+    let actual = [];
+    try {
+      await expect.poll(async () => {
+        actual = await this.milestones(id);
+        return expected.every((m) => actual.some((a) => a.title === m.title && a.duration === m.duration));
+      }, { timeout: 20_000 }).toBe(true);
+    } catch (e) {
+      throw new Error(`Milestone Phase ${label} ไม่ถูกบันทึกใน backend\nที่ backend มีจริง: ${JSON.stringify(actual)}`);
+    }
+  }
+
   toast(text) {
     return this.page.locator('[role="status"]', { hasText: text });
   }
