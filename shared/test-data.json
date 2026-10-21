@@ -1,7 +1,12 @@
 {
   "maxDraftProjects": 5,
-  "blockingStates": ["funding", "pending_review", "executing", "pending_cancel", "pending_edit_review"],
-
+  "blockingStates": [
+    "funding",
+    "pending_review",
+    "executing",
+    "pending_cancel",
+    "pending_edit_review"
+  ],
   "project": {
     "title": "AUTO-E2E โปรเจกต์ทดสอบ",
     "description": "โปรเจกต์ทดสอบอัตโนมัติ",
@@ -15,13 +20,32 @@
     "story": "เรื่องราวของโปรเจกต์ทดสอบอัตโนมัติ",
     "risk": "ความเสี่ยงของโปรเจกต์ทดสอบอัตโนมัติ",
     "milestones": [
-      { "title": "Phase 1 ออกแบบระบบ", "description": "ออกแบบระบบและ UX", "duration": 30, "criteria": "เอกสารออกแบบผ่านการรีวิว" },
-      { "title": "Phase 2 พัฒนา MVP", "description": "พัฒนาฟีเจอร์หลัก", "duration": 30, "criteria": "MVP ใช้งานได้" },
-      { "title": "Phase 3 ทดสอบระบบ", "description": "ทดสอบกับผู้ใช้จริง", "duration": 30, "criteria": "ผ่าน UAT" },
-      { "title": "Phase 4 เปิดใช้งาน", "description": "เปิดให้ใช้งานจริง", "duration": 30, "criteria": "ขึ้นระบบ Production" }
+      {
+        "title": "Phase 1 ออกแบบระบบ",
+        "description": "ออกแบบระบบและ UX",
+        "duration": 30,
+        "criteria": "เอกสารออกแบบผ่านการรีวิว"
+      },
+      {
+        "title": "Phase 2 พัฒนา MVP",
+        "description": "พัฒนาฟีเจอร์หลัก",
+        "duration": 30,
+        "criteria": "MVP ใช้งานได้"
+      },
+      {
+        "title": "Phase 3 ทดสอบระบบ",
+        "description": "ทดสอบกับผู้ใช้จริง",
+        "duration": 30,
+        "criteria": "ผ่าน UAT"
+      },
+      {
+        "title": "Phase 4 เปิดใช้งาน",
+        "description": "เปิดให้ใช้งานจริง",
+        "duration": 30,
+        "criteria": "ขึ้นระบบ Production"
+      }
     ]
   },
-
   "invalid": {
     "fundingGoalBelowMin": 500,
     "fundingGoalMinText": "1,000",
@@ -37,9 +61,10 @@
     "milestoneDurationOver": 40,
     "milestoneDurationClamped": 30
   },
-
-  "faq": { "question": "โปรเจกต์จะเสร็จเมื่อไหร่?" },
-
+  "faq": {
+    "question": "โปรเจกต์จะเสร็จเมื่อไหร่?",
+    "answer": "คาดว่าจะเสร็จภายใน 12 เดือน"
+  },
   "text": {
     "myProjectsHeading": "โปรเจกต์ของฉัน",
     "createButton": "สร้างโปรเจกต์ใหม่",
@@ -60,6 +85,9 @@
     "toastMilestoneClamp": "ปรับ Phase 1 เป็น 30 วัน (Phase อื่นใช้ไปแล้ว 0 วัน)",
     "toastCoverUploaded": "อัปโหลดรูปปกสำเร็จ",
     "toastImagesUploaded": "อัปโหลดรูปภาพสำเร็จ",
-    "videoCounterEmpty": "0/1 ไฟล์"
+    "videoCounterEmpty": "0/1 ไฟล์",
+    "toastFaqAdded": "เพิ่ม FAQ สำเร็จ",
+    "milestoneTotalText": "รวมทุก Phase: 120 / 360 วัน",
+    "imagesCounterOne": "1/5 รูป"
   }
 }

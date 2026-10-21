@@ -25,7 +25,7 @@ if not exist .venv\Scripts\python.exe (
 .venv\Scripts\python.exe -m pip install -r requirements.txt || exit /b 1
 
 echo Installing Browser library dependencies + Chromium (needs Node.js) ...
-.venv\Scripts\rfbrowser.exe init chromium || exit /b 1
+.venv\Scripts\rfbrowser.exe init chromium chromium-headless-shell || exit /b 1
 
 echo.
 echo Setup complete. Run tests with:  run.bat

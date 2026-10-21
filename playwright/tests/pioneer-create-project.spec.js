@@ -198,6 +198,20 @@ test.describe('Scenario-14.3 อัปโหลดสื่อประกอบ
     await expect(page.getByText(TEXT.videoCounterEmpty, { exact: true })).toBeVisible();
     await flyup.expectProject(id, { videoCount: 0 });
   });
+
+  test('TC-14-016 [P] อัปโหลดรูปภาพปกและรูปภาพประกอบสำเร็จ', { tag: ['@positive', '@TC-14-016'] }, async () => {
+    const { id, title } = await flyup.prepareDraft('TC-14-016');
+    await flyup.openStep1(id, title);
+
+    // อัปโหลดรูปปก (PNG) + รูปประกอบ 1 รูป -> ต้องขึ้นข้อความสำเร็จ แสดงรูปตัวอย่าง และตัวนับ "1/5 รูป"
+    await flyup.uploadCoverAndOneImage();
+
+    // ตรวจใน backend: มีรูปปก และมีรูปประกอบ 1 รูป
+    await expect.poll(async () => {
+      const p = await flyup.get(id);
+      return { hasCover: p.coverImage !== '', imageCount: p.imageCount };
+    }, { timeout: 15_000, message: 'รูปปก/รูปประกอบไม่ถูกบันทึกใน backend' }).toEqual({ hasCover: true, imageCount: 1 });
+  });
 });
 
 // ───────────────────────── Scenario-14.4 ─────────────────────────
@@ -215,6 +229,23 @@ test.describe('Scenario-14.4 เรื่องราวและคำถาม
     await expect(flyup.toast(TEXT.toastFaqRequired)).toBeVisible();
     await expect(page.locator(SEL.faqQuestion)).toHaveValue(DATA.faq.question);
     expect(await flyup.faqs(id)).toHaveLength(0);
+  });
+
+  test('TC-14-017 [P] เพิ่ม FAQ สำเร็จ', { tag: ['@positive', '@TC-14-017'] }, async ({ page }) => {
+    const { id } = await flyup.prepareDraft('TC-14-017');
+    await flyup.openProjectPage(id, 2);
+
+    // กรอกทั้งคำถามและคำตอบ แล้วกด "เพิ่ม FAQ"
+    await page.locator(SEL.faqQuestion).fill(DATA.faq.question);
+    await page.locator(SEL.faqAnswer).fill(DATA.faq.answer);
+    await page.locator(SEL.faqAdd).click();
+
+    // ต้องขึ้นข้อความสำเร็จ, FAQ แสดงในรายการ, ฟอร์มถูกล้าง และ backend มี FAQ 1 รายการ
+    await expect(flyup.toast(TEXT.toastFaqAdded)).toBeVisible();
+    await expect(page.getByText(`Q: ${DATA.faq.question}`, { exact: true })).toBeVisible();
+    await expect(page.locator(SEL.faqQuestion)).toHaveValue('');
+    await expect.poll(async () => (await flyup.faqs(id)).map((f) => f.question), { timeout: 15_000 })
+      .toEqual([DATA.faq.question]);
   });
 });
 
@@ -236,6 +267,21 @@ test.describe('Scenario-14.5 กำหนด Milestone (Step 3)', () => {
     await expect.poll(async () => ((await flyup.milestones(id)).find((m) => m.phase === 1) || {}).duration, {
       timeout: 15_000,
     }).toBe(INV.milestoneDurationClamped);
+  });
+
+  test('TC-14-018 [P] กำหนด Milestone ครบ 4 Phase สำเร็จ', { tag: ['@positive', '@TC-14-018'] }, async ({ page }) => {
+    // Pre-condition: แบบร่างที่ตั้งระยะเวลาโปรเจกต์ 12 เดือน (= 360 วัน) ผ่าน API แล้วเปิด Step 3
+    const { id } = await flyup.prepareDraft('TC-14-018', {
+      update: { duration_months: P.projectDurationMonths },
+    });
+    await flyup.openProjectPage(id, 3);
+
+    // กรอกชื่อ, คำอธิบาย, ระยะเวลา 30 วัน และเกณฑ์การยอมรับ ครบทั้ง 4 Phase (รอ backend บันทึกทีละช่อง)
+    await flyup.fillAllMilestones(id);
+
+    // หน้าเว็บสรุประยะเวลารวม 120 / 360 วัน (ไม่เกินระยะเวลาโปรเจกต์) และไม่มีข้อความเตือน
+    await expect(page.getByText(TEXT.milestoneTotalText)).toBeVisible();
+    await expect(page.locator('[role="status"]', { hasText: 'ปรับ Phase' })).toHaveCount(0);
   });
 });
 
@@ -295,15 +341,8 @@ test.describe('Scenario-14.6 ยืนยันและส่งคำขอส
       await flyup.openStep1(id, (await flyup.get(id)).title);
       await flyup.fillStep1Basics(id);
 
-      // อัปโหลดรูปปก (PNG 1x1 px) แล้วรอข้อความ "อัปโหลดรูปปกสำเร็จ" และรูปตัวอย่าง
-      await page.locator(SEL.coverInput).setInputFiles(FILES.validPng('cover.png'));
-      await expect(flyup.toast(TEXT.toastCoverUploaded)).toBeVisible({ timeout: 60_000 });
-      await expect(page.locator(SEL.coverPreview)).toBeVisible();
-
-      // อัปโหลดรูปประกอบ 1 รูป แล้วรอข้อความสำเร็จและตัวนับ "1/5 รูป"
-      await page.locator(SEL.imagesInput).setInputFiles(FILES.validPng('image-1.png'));
-      await expect(flyup.toast(TEXT.toastImagesUploaded)).toBeVisible({ timeout: 60_000 });
-      await expect(page.getByText('1/5 รูป', { exact: true })).toBeVisible();
+      // อัปโหลดรูปปก + รูปประกอบ 1 รูป แล้วรอข้อความสำเร็จ รูปตัวอย่าง และตัวนับ "1/5 รูป"
+      await flyup.uploadCoverAndOneImage();
 
       // ตรวจ backend ว่าข้อมูล Step 1 ถูกบันทึกแล้ว จากนั้นกด "ถัดไป" ไป Step 2
       await flyup.expectProject(id, { title: P.title, fundingGoal: P.fundingGoal, imageCount: 1 });
@@ -326,21 +365,8 @@ test.describe('Scenario-14.6 ยืนยันและส่งคำขอส
     });
 
     await test.step('4. Step 3: กรอก Milestone ครบ 4 Phase', async () => {
-      for (let i = 0; i < P.milestones.length; i++) {
-        const m = P.milestones[i];
-        // Phase 1 เปิดอยู่แล้ว ตั้งแต่ Phase 2 ต้องกดแท็บ "Phase N" ก่อน
-        if (i > 0) await page.getByRole('button', { name: `Phase ${i + 1}`, exact: true }).click();
-        await expect(page.getByRole('heading', { name: `Milestone ${i + 1}`, exact: true })).toBeVisible();
-        // รอให้ backend บันทึกเสร็จทีละช่อง (กันการยิง request บันทึกซ้อนกัน)
-        await flyup.fillMilestoneFieldAndWaitSave(SEL.milestoneTitle, m.title);
-        await flyup.fillMilestoneFieldAndWaitSave(SEL.milestoneDescription, m.description);
-        await flyup.fillMilestoneFieldAndWaitSave(SEL.milestoneDuration, m.duration);
-        await flyup.fillMilestoneFieldAndWaitSave(SEL.milestoneCriteria1, m.criteria);
-        // ตรวจว่า Phase นี้อยู่ใน backend แล้ว (ถ้าไม่อยู่ จะบอกว่า Phase ไหนหาย)
-        await flyup.expectMilestoneSaved(id, i + 1, m);
-      }
-      // ตรวจซ้ำว่าครบทั้ง 4 Phase แล้วไป Step 4
-      await flyup.expectMilestoneSaved(id, 'ทั้ง 4 Phase', null, P.milestones);
+      // กรอกทีละ Phase ทีละช่อง รอ backend บันทึก และตรวจว่าแต่ละ Phase อยู่ใน backend แล้วไป Step 4
+      await flyup.fillAllMilestones(id);
       await page.getByRole('link', { name: TEXT.nextButton }).click();
       await expect(page).toHaveURL(new RegExp(`/project/overview/${id}/step/4$`));
     });

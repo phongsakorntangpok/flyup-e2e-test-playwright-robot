@@ -165,6 +165,15 @@ TC-14-010 [N] วิดีโอขนาดเกิน 10MB
     Wait For Elements State    text="${TEXT}[videoCounterEmpty]"    visible
     Project Should Match    ${id}    videoCount=0
 
+TC-14-016 [P] อัปโหลดรูปภาพปกและรูปภาพประกอบสำเร็จ
+    [Tags]    positive    TC-14-016    scenario-14.3
+    ${id}    ${title}=    Prepare Draft    TC-14-016
+    Open Step 1    ${id}    ${title}
+    # อัปโหลดรูปปก (PNG) + รูปประกอบ 1 รูป -> ต้องขึ้นข้อความสำเร็จ แสดงรูปตัวอย่าง และตัวนับ "1/5 รูป"
+    Upload Cover And One Image
+    # ตรวจใน backend: มีรูปปก และมีรูปประกอบ 1 รูป
+    Wait Until Keyword Succeeds    15s    1s    Cover And Image Should Be Saved    ${id}
+
 # ───────────── Scenario-14.4 เรื่องราวและคำถามที่พบบ่อย (Step 2) ─────────────
 TC-14-011 [N] เพิ่ม FAQ โดยไม่กรอกคำตอบ
     [Tags]    negative    TC-14-011    scenario-14.4
@@ -180,6 +189,20 @@ TC-14-011 [N] เพิ่ม FAQ โดยไม่กรอกคำตอบ
     ${faqs}=    FlyUp Api    faqs    ${id}
     Length Should Be    ${faqs}    0
 
+TC-14-017 [P] เพิ่ม FAQ สำเร็จ
+    [Tags]    positive    TC-14-017    scenario-14.4
+    ${id}    ${title}=    Prepare Draft    TC-14-017
+    Open Project Page    ${id}    2
+    # กรอกทั้งคำถามและคำตอบ แล้วกด "เพิ่ม FAQ"
+    Fill Text    ${SEL_FAQ_QUESTION}    ${FAQ}[question]
+    Fill Text    ${SEL_FAQ_ANSWER}      ${FAQ}[answer]
+    Click    ${SEL_FAQ_ADD}
+    # ต้องขึ้นข้อความสำเร็จ, FAQ แสดงในรายการ, ฟอร์มถูกล้าง และ backend มี FAQ 1 รายการ
+    Toast Should Be Visible    ${TEXT}[toastFaqAdded]
+    Wait For Elements State    text="Q: ${FAQ}[question]"    visible
+    Input Value Should Be    ${SEL_FAQ_QUESTION}    ${EMPTY}
+    Wait Until Keyword Succeeds    15s    1s    Faq Questions Should Be    ${id}    ${FAQ}[question]
+
 # ───────────── Scenario-14.5 กำหนด Milestone (Step 3) ─────────────
 TC-14-012 [N] ระยะเวลา Milestone รวมเกินระยะเวลาโปรเจกต์
     [Tags]    negative    TC-14-012    scenario-14.5
@@ -193,6 +216,18 @@ TC-14-012 [N] ระยะเวลา Milestone รวมเกินระย�
     Toast Should Be Visible    ${TEXT}[toastMilestoneClamp]
     Input Value Should Be    ${SEL_MS_DURATION}    ${INVALID}[milestoneDurationClamped]
     Wait Until Keyword Succeeds    15s    1s    Milestone Phase 1 Duration Should Be    ${id}    ${INVALID}[milestoneDurationClamped]
+
+TC-14-018 [P] กำหนด Milestone ครบ 4 Phase สำเร็จ
+    [Tags]    positive    TC-14-018    scenario-14.5
+    # Pre-condition: แบบร่างที่ตั้งระยะเวลาโปรเจกต์ 12 เดือน (= 360 วัน) ผ่าน API แล้วเปิด Step 3
+    ${update}=    Create Dictionary    duration_months=${PROJECT}[projectDurationMonths]
+    ${id}    ${title}=    Prepare Draft    TC-14-018    update=${update}
+    Open Project Page    ${id}    3
+    # กรอกชื่อ, คำอธิบาย, ระยะเวลา 30 วัน และเกณฑ์การยอมรับ ครบทั้ง 4 Phase (รอ backend บันทึกทีละช่อง)
+    Fill All Milestones    ${id}
+    # หน้าเว็บสรุประยะเวลารวม 120 / 360 วัน (ไม่เกินระยะเวลาโปรเจกต์) และไม่มีข้อความเตือน
+    Wait For Elements State    text=${TEXT}[milestoneTotalText]    visible
+    Get Element Count    css=[role="status"]:has-text("ปรับ Phase")    ==    0
 
 # ───────────── Scenario-14.6 ยืนยันและส่งคำขอสร้างโปรเจกต์ (Step 4) ─────────────
 TC-14-013 [N] ไม่ติ๊กยอมรับข้อตกลง ปุ่มส่งคำขอกดไม่ได้
@@ -242,16 +277,8 @@ TC-14-015 [P] สร้างและส่งคำขอสร้างโป
     ${current}=    Get Project    ${id}
     Open Step 1    ${id}    ${current}[title]
     Fill Step 1 Basics    ${id}
-    # อัปโหลดรูปปก (PNG 1x1 px) แล้วรอข้อความ "อัปโหลดรูปปกสำเร็จ" และรูปตัวอย่าง
-    ${cover}=    Create Valid Png    cover.png
-    Upload File By Selector    ${SEL_COVER_INPUT}    ${cover}
-    Toast Should Be Visible    ${TEXT}[toastCoverUploaded]    timeout=60s
-    Wait For Elements State    ${SEL_COVER_PREVIEW}    visible
-    # อัปโหลดรูปประกอบ 1 รูป แล้วรอข้อความสำเร็จและตัวนับ "1/5 รูป"
-    ${image}=    Create Valid Png    image-1.png
-    Upload File By Selector    ${SEL_IMAGES_INPUT}    ${image}
-    Toast Should Be Visible    ${TEXT}[toastImagesUploaded]    timeout=60s
-    Wait For Elements State    text="1/5 รูป"    visible
+    # อัปโหลดรูปปก + รูปประกอบ 1 รูป แล้วรอข้อความสำเร็จ รูปตัวอย่าง และตัวนับ "1/5 รูป"
+    Upload Cover And One Image
     # ตรวจ backend ว่าข้อมูล Step 1 ถูกบันทึกแล้ว จากนั้นกด "ถัดไป" ไป Step 2
     Project Should Match    ${id}    title=${PROJECT}[title]    fundingGoal=${PROJECT}[fundingGoal]    imageCount=1
     Click    ${SEL_NEXT_LINK}
@@ -267,11 +294,7 @@ TC-14-015 [P] สร้างและส่งคำขอสร้างโป
     Get Url    matches    /project/overview/${id}/step/3$
 
     # 4. Step 3: กรอก Milestone ครบ 4 Phase — แต่ละ Phase กรอกทีละช่อง รอ backend บันทึก และตรวจว่า Phase นั้นอยู่ใน backend
-    FOR    ${index}    ${milestone}    IN ENUMERATE    @{MILESTONES}
-        Fill Milestone Phase    ${id}    ${index}    ${milestone}
-    END
-    # ตรวจซ้ำว่าครบทั้ง 4 Phase แล้วไป Step 4
-    Milestones Should Be Saved    ${id}    ทั้ง 4 Phase    ${MILESTONES}
+    Fill All Milestones    ${id}
     Click    ${SEL_NEXT_LINK}
     Get Url    matches    /project/overview/${id}/step/4$
 

@@ -229,6 +229,34 @@ class FlyUp {
     return category;
   }
 
+  /** อัปโหลดรูปปก + รูปประกอบ 1 รูป (PNG 1x1 px) แล้วรอข้อความสำเร็จ รูปตัวอย่าง และตัวนับ "1/5 รูป" */
+  async uploadCoverAndOneImage() {
+    await this.page.locator(SEL.coverInput).setInputFiles(FILES.validPng('cover.png'));
+    await expect(this.toast(TEXT.toastCoverUploaded)).toBeVisible({ timeout: 60_000 });
+    await expect(this.page.locator(SEL.coverPreview)).toBeVisible();
+
+    await this.page.locator(SEL.imagesInput).setInputFiles(FILES.validPng('image-1.png'));
+    await expect(this.toast(TEXT.toastImagesUploaded)).toBeVisible({ timeout: 60_000 });
+    await expect(this.page.getByText(TEXT.imagesCounterOne, { exact: true })).toBeVisible();
+  }
+
+  /** Step 3: กรอก Milestone ครบ 4 Phase ตาม test-data — รอ backend บันทึกทีละช่อง และตรวจว่าแต่ละ Phase อยู่ใน backend */
+  async fillAllMilestones(id) {
+    const milestones = DATA.project.milestones;
+    for (let i = 0; i < milestones.length; i++) {
+      const m = milestones[i];
+      // Phase 1 เปิดอยู่แล้ว ตั้งแต่ Phase 2 ต้องกดแท็บ "Phase N" ก่อน
+      if (i > 0) await this.page.getByRole('button', { name: `Phase ${i + 1}`, exact: true }).click();
+      await expect(this.page.getByRole('heading', { name: `Milestone ${i + 1}`, exact: true })).toBeVisible();
+      await this.fillMilestoneFieldAndWaitSave(SEL.milestoneTitle, m.title);
+      await this.fillMilestoneFieldAndWaitSave(SEL.milestoneDescription, m.description);
+      await this.fillMilestoneFieldAndWaitSave(SEL.milestoneDuration, m.duration);
+      await this.fillMilestoneFieldAndWaitSave(SEL.milestoneCriteria1, m.criteria);
+      await this.expectMilestoneSaved(id, i + 1, m);
+    }
+    await this.expectMilestoneSaved(id, 'ทั้ง 4 Phase', null, milestones);
+  }
+
   /**
    * ตรวจว่า Milestone ถูกบันทึกใน backend (เทียบจากชื่อและระยะเวลา)
    * fail พร้อมแสดงรายการ Milestone ที่ backend มีจริง เพื่อดูว่า Phase ไหนหาย

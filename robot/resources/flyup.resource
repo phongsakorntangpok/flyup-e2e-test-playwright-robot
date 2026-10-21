@@ -26,6 +26,7 @@ ${SEL_VIDEO_INPUT}            css=[data-testid="basics-video-input"]
 ${SEL_STORY_EDITOR}           css=.ProseMirror
 ${SEL_RISK}                   css=p:has-text("ความเสี่ยงของโปรเจกต์") + textarea
 ${SEL_FAQ_QUESTION}           css=[data-testid="faq-question-input"]
+${SEL_FAQ_ANSWER}              css=[data-testid="faq-answer-input"]
 ${SEL_FAQ_ADD}                css=[data-testid="faq-add-btn"]
 ${SEL_MS_TITLE}               css=input[maxlength="50"]
 ${SEL_MS_DESCRIPTION}         css=textarea[maxlength="5000"]
@@ -251,6 +252,37 @@ Fill Project Field And Wait Save
     ${saved}=    Promise To Wait For Project Save    ${id}
     Fill And Blur    ${selector}    ${value}
     Save Response Should Be Ok    ${saved}    ช่อง ${selector}
+
+Upload Cover And One Image
+    [Documentation]    อัปโหลดรูปปก + รูปประกอบ 1 รูป (PNG 1x1 px) แล้วรอข้อความสำเร็จ รูปตัวอย่าง และตัวนับ "1/5 รูป"
+    ${cover}=    Create Valid Png    cover.png
+    Upload File By Selector    ${SEL_COVER_INPUT}    ${cover}
+    Toast Should Be Visible    ${TEXT}[toastCoverUploaded]    timeout=60s
+    Wait For Elements State    ${SEL_COVER_PREVIEW}    visible
+    ${image}=    Create Valid Png    image-1.png
+    Upload File By Selector    ${SEL_IMAGES_INPUT}    ${image}
+    Toast Should Be Visible    ${TEXT}[toastImagesUploaded]    timeout=60s
+    Wait For Elements State    text="${TEXT}[imagesCounterOne]"    visible
+
+Fill All Milestones
+    [Documentation]    Step 3: กรอก Milestone ครบ 4 Phase ตาม test-data — รอ backend บันทึกทีละช่อง และตรวจว่าแต่ละ Phase อยู่ใน backend
+    [Arguments]    ${id}
+    FOR    ${index}    ${milestone}    IN ENUMERATE    @{MILESTONES}
+        Fill Milestone Phase    ${id}    ${index}    ${milestone}
+    END
+    Milestones Should Be Saved    ${id}    ทั้ง 4 Phase    ${MILESTONES}
+
+Cover And Image Should Be Saved
+    [Arguments]    ${id}
+    ${project}=    Get Project    ${id}
+    Should Not Be Empty    ${project}[coverImage]    msg=backend ยังไม่มีรูปปก
+    Should Be Equal As Integers    ${project}[imageCount]    1
+
+Faq Questions Should Be
+    [Arguments]    ${id}    @{expected}
+    ${faqs}=    FlyUp Api    faqs    ${id}
+    ${questions}=    Evaluate    [f['question'] for f in $faqs]
+    Lists Should Be Equal    ${questions}    ${expected}
 
 Fill Milestone Phase
     [Arguments]    ${id}    ${index}    ${milestone}

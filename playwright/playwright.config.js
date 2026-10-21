@@ -22,7 +22,10 @@ module.exports = defineConfig({
     timezoneId: 'Asia/Bangkok',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
+    video: 'on',
+    launchOptions: {
+      slowMo: 1000, // 1000 ms = ช้าลง 1 วินาทีต่อ 1 แอคชัน
+    },
   },
   projects: [
     {
